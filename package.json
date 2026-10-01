@@ -1,0 +1,34 @@
+{
+  "name": "logseq-pr-badges",
+  "version": "0.1.0",
+  "description": "GitHub pull request state badges for Logseq",
+  "author": "Sean Haugh",
+  "license": "MIT",
+  "main": "dist/index.html",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@logseq/libs": "0.0.17",
+    "effect": "4.0.0-rc.112",
+    "preact": "^10.29.8",
+    "preact-render-to-string": "^6.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@effect/vitest": "4.0.0-rc.112",
+    "typescript": "^5.6.0",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11"
+  },
+  "logseq": {
+    "id": "logseq-pr-badges",
+    "title": "PR Badges",
+    "main": "dist/index.html",
+    "icon": "./icon.svg"
+  }
+}

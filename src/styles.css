@@ -1,0 +1,71 @@
+.pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  vertical-align: baseline;
+  text-decoration: none;
+  padding: 0.05em 0.5em 0.1em;
+  border-radius: 4px;
+  /* Derived from currentColor so the chip tints itself per state and per
+     theme, instead of eight more hard-coded declarations. */
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+}
+/* No baseline nudge: align-items:center already centres the icon against the
+   text's line box, and offsetting it from there is what makes the icon's
+   midline sit on the text baseline instead of the text's midline. */
+.pr-badge__icon {
+  flex: none;
+  fill: currentColor;
+  line-height: 1;
+}
+.pr-badge[data-stale="true"] {
+  opacity: 0.6;
+}
+.pr-badge--skeleton {
+  opacity: 0.5;
+  font-style: italic;
+}
+.pr-badge--error {
+  color: #d1242f;
+}
+
+.pr-badge[data-state="open"] {
+  color: #1a7f37;
+}
+.pr-badge[data-state="merged"] {
+  color: #8250df;
+}
+.pr-badge[data-state="closed"] {
+  color: #d1242f;
+}
+.pr-badge[data-state="draft"] {
+  color: #59636e;
+}
+
+html[data-theme="dark"] .pr-badge[data-state="open"] {
+  color: #3fb950;
+}
+html[data-theme="dark"] .pr-badge[data-state="merged"] {
+  color: #ab7df8;
+}
+html[data-theme="dark"] .pr-badge[data-state="closed"] {
+  color: #f85149;
+}
+html[data-theme="dark"] .pr-badge[data-state="draft"] {
+  color: #9198a1;
+}
+html[data-theme="dark"] .pr-badge--error {
+  color: #f85149;
+}
+
+/* Logseq wraps macros in a block-level div.macro. Scope the inline fix to our
+   own badges so other plugins' renderers are untouched. */
+div.macro:has(.pr-badge) {
+  display: inline;
+}
+/* Logseq interposes its own plugin-slot wrapper between div.macro and our markup,
+   so the rule above is not always enough on its own. */
+div.macro:has(.pr-badge) > * {
+  display: inline;
+}
