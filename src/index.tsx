@@ -164,10 +164,13 @@ const program = Effect.scoped(
 
     yield* Effect.forkScoped(
       Stream.runForEach(refreshCommands, () =>
-        Effect.promise(() =>
-          logseq.UI.showMsg("PR states refreshing…", "success"),
-        ).pipe(
-          Effect.andThen(PubSub.publish(events, Event.Refresh())),
+        // Publish first: a toast that fails to show must not cancel the refresh.
+        PubSub.publish(events, Event.Refresh()).pipe(
+          Effect.andThen(
+            Effect.promise(() =>
+              logseq.UI.showMsg("PR states refreshing…", "success"),
+            ),
+          ),
           logDefects,
         ),
       ),
