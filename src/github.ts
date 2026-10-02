@@ -43,7 +43,6 @@ export type PrError =
 export interface PrData {
   readonly state: PrState;
   readonly title: string;
-  readonly url: string;
 }
 
 const ENDPOINT = "https://api.github.com/graphql";
@@ -60,7 +59,7 @@ export const buildQuery = (refs: readonly PrRef[]): string => {
   const parts = refs.map(
     (r, i) =>
       `a${i}: repository(owner: ${JSON.stringify(r.owner)}, name: ${JSON.stringify(r.repo)}) ` +
-      `{ pullRequest(number: ${r.number}) { title url state isDraft } }`,
+      `{ pullRequest(number: ${r.number}) { title state isDraft } }`,
   );
   return `query { ${parts.join(" ")} }`;
 };
@@ -288,7 +287,6 @@ export const makeResolver = Effect.gen(function* () {
           Exit.succeed({
             state: deriveState(String(node.state), Boolean(node.isDraft)),
             title: String(node.title ?? ""),
-            url: String(node.url ?? ""),
           }),
         );
       });

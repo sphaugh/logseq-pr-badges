@@ -12,7 +12,6 @@ export type PrState = typeof PrStateSchema.Type;
 export const CacheEntrySchema = Schema.Struct({
   state: PrStateSchema,
   title: Schema.String,
-  url: Schema.String,
   fetchedAt: Schema.Finite,
 });
 export type CacheEntry = typeof CacheEntrySchema.Type;

@@ -125,10 +125,9 @@ export class Badges extends Context.Service<
       );
 
     const drawBadge = (ref: PrRef, entry: CacheEntry, stale: boolean) =>
-      redraw(ref, <Badge entry={entry} refKey={ref.key} stale={stale} />);
+      redraw(ref, <Badge entry={entry} pr={ref} stale={stale} />);
 
-    const drawSkeleton = (ref: PrRef) =>
-      redraw(ref, <Skeleton refKey={ref.key} />);
+    const drawSkeleton = (ref: PrRef) => redraw(ref, <Skeleton pr={ref} />);
 
     const drawError = (ref: PrRef, message: string) =>
       redraw(ref, <ErrorBadge message={message} />);
@@ -139,10 +138,8 @@ export class Badges extends Context.Service<
       cache.get(ref.key).pipe(
         Effect.map(
           Option.match({
-            onSome: (entry) => <Badge entry={entry} refKey={ref.key} stale />,
-            onNone: () => (
-              <FallbackLink refKey={ref.key} url={ref.url} message={message} />
-            ),
+            onSome: (entry) => <Badge entry={entry} pr={ref} stale />,
+            onNone: () => <FallbackLink pr={ref} message={message} />,
           }),
         ),
         Effect.flatMap((ui) => redraw(ref, ui)),

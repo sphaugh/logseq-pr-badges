@@ -57,7 +57,6 @@ const jsonResponse = (
 
 const prNode = (over: Record<string, unknown> = {}) => ({
   title: "EMB-2887: Bringup",
-  url: "https://github.com/avride/av/pull/36812",
   state: "OPEN",
   isDraft: true,
   ...over,
@@ -173,7 +172,6 @@ describe("the resolver", () => {
           expect(data).toEqual({
             state: "draft",
             title: "EMB-2887: Bringup",
-            url: "https://github.com/avride/av/pull/36812",
           });
         }),
     ),

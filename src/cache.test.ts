@@ -43,7 +43,6 @@ const failingLayer = Layer.provideMerge(
 const entry = (o: Partial<CacheEntry> = {}): CacheEntry => ({
   state: "open",
   title: "A title",
-  url: "https://x.test/1",
   fetchedAt: 1000,
   ...o,
 });
@@ -83,6 +82,21 @@ describe("Cache", () => {
       yield* kv.set(`${PREFIX}avride/av#1`, "{not json");
       const cache = yield* Cache;
       expect(Option.isNone(yield* cache.get("avride/av#1"))).toBe(true);
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("still reads an entry written when entries carried a url", () =>
+    Effect.gen(function* () {
+      const kv = yield* KeyValueStore.KeyValueStore;
+      yield* kv.set(
+        `${PREFIX}avride/av#1`,
+        JSON.stringify({
+          ...entry(),
+          url: "https://github.com/avride/av/pull/1",
+        }),
+      );
+      const cache = yield* Cache;
+      expect(yield* cache.get("avride/av#1")).toEqual(Option.some(entry()));
     }).pipe(Effect.provide(testLayer)),
   );
 
