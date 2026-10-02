@@ -136,7 +136,7 @@ const program = Effect.scoped(
         return parseRef(raw ?? "").pipe(
           Effect.tap((ref) => TxHashMap.set(liveSlots, slot, ref)),
           Effect.flatMap((ref) =>
-            PubSub.publish(events, Event.Slotted({ slot, ref })),
+            PubSub.publish(events, Event.Slotted({ ref })),
           ),
           // The template parser's own message is generic, so name the expected form.
           Effect.catchTag("SchemaError", (e) =>

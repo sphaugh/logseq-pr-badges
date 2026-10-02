@@ -4,6 +4,7 @@ import {
   Duration,
   Effect,
   FiberMap,
+  HashSet,
   Layer,
   Option,
   PubSub,
@@ -67,9 +68,19 @@ export class LiveSlots extends Context.Service<
   TxHashMap.TxHashMap<string, PrRef>
 >()("logseq-pr-badges/LiveSlots") {}
 
-/** What the host reports to the running instance. */
+/** Paints `ui` into every live slot that shows `ref`. */
+const redrawIn =
+  (liveSlots: TxHashMap.TxHashMap<string, PrRef>) => (ref: PrRef, ui: VNode) =>
+    liveSlots.pipe(
+      TxHashMap.filter((r) => r.key === ref.key),
+      // biome-ignore lint/suspicious/useIterableCallbackReturn: TxHashMap.forEach, not Array#forEach; the callback must return an Effect.
+      Effect.flatMap(TxHashMap.forEach((_, slot) => draw(slot, ui))),
+    );
+
+/** What the host reports to the running instance. The slot is already recorded in
+ *  `LiveSlots`, and every draw goes to all of a PR's slots, so only the ref travels. */
 export type Event = Data.TaggedEnum<{
-  Slotted: { readonly slot: string; readonly ref: PrRef };
+  Slotted: { readonly ref: PrRef };
   Refresh: Record<never, never>;
 }>;
 export const Event = Data.taggedEnum<Event>();
@@ -88,7 +99,7 @@ const Lookup = Data.taggedEnum<Lookup>();
 export class Badges extends Context.Service<
   Badges,
   {
-    readonly handleMacro: (slot: string, ref: PrRef) => Effect.Effect<void>;
+    readonly handleMacro: (ref: PrRef) => Effect.Effect<void>;
     /** Re-fetch every PR on screen, for the refresh command. */
     readonly refreshAll: Effect.Effect<void>;
   }
@@ -117,12 +128,7 @@ export class Badges extends Context.Service<
       Effect.flatMap((dead) => TxHashMap.removeMany(liveSlots, dead)),
     );
 
-    const redraw = (ref: PrRef, ui: VNode) =>
-      liveSlots.pipe(
-        TxHashMap.filter((r) => r.key === ref.key),
-        // biome-ignore lint/suspicious/useIterableCallbackReturn: TxHashMap.forEach, not Array#forEach; the callback must return an Effect.
-        Effect.flatMap(TxHashMap.forEach((_, slot) => draw(slot, ui))),
-      );
+    const redraw = redrawIn(liveSlots);
 
     const drawBadge = (ref: PrRef, entry: CacheEntry, stale: boolean) =>
       redraw(ref, <Badge entry={entry} pr={ref} stale={stale} />);
@@ -197,8 +203,7 @@ export class Badges extends Context.Service<
         return recentlyMissed ? Lookup.RecentlyMissed() : Lookup.Unseen();
       });
 
-    // The slot is already in `liveSlots`, and every draw goes to all of a PR's slots.
-    const handleMacro = (_slot: string, ref: PrRef) =>
+    const handleMacro = (ref: PrRef) =>
       lookup(ref).pipe(
         Effect.flatMap(
           Lookup.$match({
@@ -233,14 +238,15 @@ export const NoTokenBadges = Layer.effect(
   Badges,
   Effect.gen(function* () {
     const liveSlots = yield* LiveSlots;
-    const drawNoToken = (slot: string) =>
-      draw(
-        slot,
+    const redraw = redrawIn(liveSlots);
+    const drawNoToken = (ref: PrRef) =>
+      redraw(
+        ref,
         <ErrorBadge message="no GitHub token set — add one in the PR Badges plugin settings" />,
       );
     return {
       handleMacro: drawNoToken,
-      refreshAll: TxHashMap.forEach(liveSlots, (_, slot) => drawNoToken(slot)),
+      refreshAll: TxHashMap.forEach(liveSlots, drawNoToken),
     };
   }),
 );
@@ -269,15 +275,16 @@ export const runBadges = (events: PubSub.PubSub<Event>) =>
 
       // Subscribe before catching up, so a macro slotted in between is not missed.
       const subscription = yield* PubSub.subscribe(events);
-      yield* TxHashMap.forEach(liveSlots, (ref, slot) =>
-        badges.handleMacro(slot, ref),
-      );
+
+      // Once per PR, however many slots show it: each draw already reaches them all.
+      const onScreen = HashSet.fromIterable(yield* TxHashMap.values(liveSlots));
+      yield* Effect.forEach(onScreen, badges.handleMacro, { discard: true });
 
       return yield* Effect.forever(
         PubSub.take(subscription).pipe(
           Effect.flatMap(
             Event.$match({
-              Slotted: ({ slot, ref }) => badges.handleMacro(slot, ref),
+              Slotted: ({ ref }) => badges.handleMacro(ref),
               Refresh: () => badges.refreshAll,
             }),
           ),

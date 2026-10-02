@@ -4,7 +4,8 @@ import { beforeEach, describe, expect } from "vitest";
 import { Event, LiveSlots, NoTokenBadges, runBadges } from "./badges";
 import { PrRef } from "./ref";
 
-const REF = new PrRef({ owner: "avride", repo: "av", number: 36812 });
+const ref = (number: number) =>
+  new PrRef({ owner: "avride", repo: "av", number });
 
 /** Slots painted through `logseq.provideUI`, in order. */
 let painted: string[] = [];
@@ -20,11 +21,13 @@ const settle = Effect.yieldNow.pipe(Effect.repeat({ times: 10 }));
 
 describe("runBadges", () => {
   it.effect(
-    "redraws every live slot, then handles new macros until interrupted",
+    "redraws every live slot once, then handles new macros until interrupted",
     () =>
       Effect.gen(function* () {
         const liveSlots = yield* TxHashMap.make<string, PrRef>();
-        yield* TxHashMap.set(liveSlots, "slot-1", REF);
+        // One PR shown twice: the catch-up must paint each slot once, not once per slot.
+        yield* TxHashMap.set(liveSlots, "slot-1a", ref(1));
+        yield* TxHashMap.set(liveSlots, "slot-1b", ref(1));
         const events = yield* PubSub.unbounded<Event>();
 
         const instance = yield* Effect.forkChild(
@@ -34,23 +37,22 @@ describe("runBadges", () => {
           ),
         );
         yield* settle;
-        expect(painted).toEqual(["slot-1"]);
+        expect(painted.sort()).toEqual(["slot-1a", "slot-1b"]);
 
-        yield* PubSub.publish(
-          events,
-          Event.Slotted({ slot: "slot-2", ref: REF }),
-        );
+        // The host records a slot before publishing its macro.
+        painted = [];
+        yield* TxHashMap.set(liveSlots, "slot-2", ref(2));
+        yield* PubSub.publish(events, Event.Slotted({ ref: ref(2) }));
         yield* settle;
-        expect(painted).toEqual(["slot-1", "slot-2"]);
+        expect(painted).toEqual(["slot-2"]);
 
         // A settings change interrupts the instance; it must stop handling events.
+        painted = [];
         yield* Fiber.interrupt(instance);
-        yield* PubSub.publish(
-          events,
-          Event.Slotted({ slot: "slot-3", ref: REF }),
-        );
+        yield* TxHashMap.set(liveSlots, "slot-3", ref(3));
+        yield* PubSub.publish(events, Event.Slotted({ ref: ref(3) }));
         yield* settle;
-        expect(painted).toEqual(["slot-1", "slot-2"]);
+        expect(painted).toEqual([]);
       }),
   );
 });
