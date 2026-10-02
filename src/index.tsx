@@ -1,5 +1,6 @@
 import "@logseq/libs";
 import {
+  Duration,
   Effect,
   Fiber,
   Layer,
@@ -27,6 +28,7 @@ import { decodeSettings } from "./settings";
 import styles from "./styles.css?raw";
 
 const MACRO = ":pr";
+const SETTINGS_DEBOUNCE = Duration.millis(500);
 
 // The Layers are assembled once, here, and built when the program starts. The thunk
 // passed to `layerStorage` is what makes a module-level construction safe: it
@@ -118,7 +120,9 @@ const program = Effect.scoped(
     /** The current settings, then every change. `None` while no token is set. */
     const settings = Stream.concat(
       Stream.succeed(logseq.settings),
-      Stream.fromQueue(changes),
+      // Typing a token would otherwise start an instance per keystroke, each one
+      // fetching with a partial token. The first value is not delayed.
+      Stream.debounce(Stream.fromQueue(changes), SETTINGS_DEBOUNCE),
     ).pipe(
       Stream.map((raw) => decodeSettings(raw)),
       // Logseq reports every write; only a real change is worth a new instance.
