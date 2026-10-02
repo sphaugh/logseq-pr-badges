@@ -80,29 +80,6 @@ const refreshCommands = Stream.callback<void>((queue) =>
   ),
 );
 
-/** The current settings, then every change. `None` while no token is set. */
-const settings = Stream.concat(
-  Stream.sync(() => logseq.settings),
-  Stream.callback<unknown>((queue) =>
-    Effect.acquireRelease(
-      Effect.sync(() =>
-        logseq.onSettingsChanged((next) => {
-          Queue.offerUnsafe(queue, next);
-        }),
-      ),
-      (off) => Effect.sync(off),
-    ),
-  ),
-).pipe(
-  Stream.map((raw) => decodeSettings(raw)),
-  // Logseq reports every write; only a real change is worth a new instance.
-  Stream.changesWith(
-    Option.makeEquivalence(
-      (a, b) => a.token === b.token && a.ttlMinutes === b.ttlMinutes,
-    ),
-  ),
-);
-
 const program = Effect.scoped(
   Effect.gen(function* () {
     logseq.useSettingsSchema([
@@ -126,6 +103,31 @@ const program = Effect.scoped(
 
     const liveSlots = yield* LiveSlots;
     const events = yield* PubSub.unbounded<Event>();
+
+    // Listen before reading the current value, so no change can fall in between.
+    const changes = yield* Queue.unbounded<unknown>();
+    yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        logseq.onSettingsChanged((next) => {
+          Queue.offerUnsafe(changes, next);
+        }),
+      ),
+      (off) => Effect.sync(off),
+    );
+
+    /** The current settings, then every change. `None` while no token is set. */
+    const settings = Stream.concat(
+      Stream.succeed(logseq.settings),
+      Stream.fromQueue(changes),
+    ).pipe(
+      Stream.map((raw) => decodeSettings(raw)),
+      // Logseq reports every write; only a real change is worth a new instance.
+      Stream.changesWith(
+        Option.makeEquivalence(
+          (a, b) => a.token === b.token && a.ttlMinutes === b.ttlMinutes,
+        ),
+      ),
+    );
 
     // Recording a slot and parsing its slug need no settings, so they happen here,
     // once, whichever instance is running.
