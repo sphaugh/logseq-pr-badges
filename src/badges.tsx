@@ -277,8 +277,15 @@ export const runBadges = (events: PubSub.PubSub<Event>) =>
       const subscription = yield* PubSub.subscribe(events);
 
       // Once per PR, however many slots show it: each draw already reaches them all.
+      // A defect costs that PR's badge, not the whole instance.
       const onScreen = HashSet.fromIterable(yield* TxHashMap.values(liveSlots));
-      yield* Effect.forEach(onScreen, badges.handleMacro, { discard: true });
+      yield* Effect.forEach(
+        onScreen,
+        (ref) => logDefects(badges.handleMacro(ref)),
+        {
+          discard: true,
+        },
+      );
 
       return yield* Effect.forever(
         PubSub.take(subscription).pipe(
